@@ -1,16 +1,17 @@
 import tkinter as tk
-import json
 from tkinter import messagebox
-import isbnlib
-from isbnlib import meta
+import json
 
 
 def check_user_info(username):
     with open('user_accounts.json', 'r') as file:
         for line in file:
-            user_account = json.loads(line)
-            if user_account['username'] == username:
-                return user_account
+            try:
+                user_account = json.loads(line)
+                if user_account['username'] == username:
+                    return user_account
+            except json.JSONDecodeError:
+                continue
     return None
 
 
@@ -45,6 +46,7 @@ def assign_book(username, isbn):
                 file.write(json.dumps(account) + '\n')
             file.truncate()
         messagebox.showinfo("Book Assignment", f"Assigned book with ISBN {isbn} to user {username}.")
+        entry.delete(0, tk.END)  # Clear the ISBN field
     else:
         messagebox.showinfo("Error", "User not found.")
 
@@ -65,6 +67,7 @@ def remove_book(username, isbn):
                     file.write(json.dumps(account) + '\n')
                 file.truncate()
             messagebox.showinfo("Book Return", f"Removed book with ISBN {isbn} from user {username}.")
+            entry.delete(0, tk.END)  # Clear the ISBN field
         else:
             messagebox.showinfo("Error", f"No book with ISBN {isbn} found for user {username}.")
     else:
@@ -75,17 +78,14 @@ def create_user_account():
     username = username_entry.get()
     user_account = {'username': username, 'assigned_books': []}
     with open('user_accounts.json', 'a') as file:
-        json.dump(user_account, file)
-        file.write('\n')
-    messagebox.showinfo("User Account", "User account created successfully.")
+        file.write(json.dumps(user_account) + '\n')
+    messagebox.showinfo("User Account Creation", f"User account created for {username}.")
 
 
 def get_book_name(isbn):
-    book = meta(isbn, service='goob')
-    if book:
-        return book.get('Title')
-    else:
-        return "No book information found for the given ISBN."
+    # Replace this placeholder function with your actual implementation
+    # to retrieve the book name based on the ISBN
+    return f"Book Title for ISBN {isbn}"
 
 
 def retrieve_book_info():
@@ -94,29 +94,47 @@ def retrieve_book_info():
     messagebox.showinfo("Book Information", f"Book Name: {book_name}")
 
 
-def show_all_accounts(password):
-    if password == 'admin':
-        with open('user_accounts.json', 'r') as file:
-            user_accounts = file.readlines()
-            accounts_info = "List of User Accounts:\n\n"
-            for line in user_accounts:
-                line = line.strip()  # Remove the trailing newline character
-                if line:
-                    user_account = json.loads(line)
-                    username = user_account['username']
-                    assigned_books = user_account.get('assigned_books', [])
-                    accounts_info += f"Username: {username}\n"
-                    if assigned_books:
-                        accounts_info += "Assigned Books:\n"
-                        for book in assigned_books:
-                            accounts_info += f"  - ISBN: {book.get('isbn', 'Unknown')}\n"
-                            accounts_info += f"    Title: {book.get('title', 'Unknown')}\n"
-                    else:
-                        accounts_info += "No books assigned.\n"
-                    accounts_info += "\n"
-            messagebox.showinfo("User Accounts", accounts_info)
-    else:
-        messagebox.showinfo("Error", "Invalid password.")
+def show_all_accounts():
+    with open('user_accounts.json', 'r') as file:
+        accounts_info = "List of User Accounts:\n\n"
+        for line in file:
+            line = line.strip()  # Remove the trailing newline character
+            try:
+                user_account = json.loads(line)
+                username = user_account['username']
+                assigned_books = user_account.get('assigned_books', [])
+                accounts_info += f"Username: {username}\n"
+                if assigned_books:
+                    accounts_info += "Assigned Books:\n"
+                    for book in assigned_books:
+                        accounts_info += f"  - ISBN: {book.get('isbn', 'Unknown')}\n"
+                        accounts_info += f"    Title: {book.get('title', 'Unknown')}\n"
+                else:
+                    accounts_info += "No books assigned.\n"
+                accounts_info += "\n"
+            except json.JSONDecodeError:
+                continue
+
+        # Create a new window for displaying the accounts information
+        accounts_window = tk.Toplevel(root)
+        accounts_window.title("User Accounts")
+        accounts_window.geometry("400x400")
+
+        # Create a text widget to display the accounts information
+        text_widget = tk.Text(accounts_window)
+        text_widget.pack(fill=tk.BOTH, expand=True)
+
+        # Insert the accounts information into the text widget
+        text_widget.insert(tk.END, accounts_info)
+
+        # Make the text widget read-only
+        text_widget.config(state=tk.DISABLED)
+
+        # Add a scrollbar to the text widget
+        scrollbar = tk.Scrollbar(accounts_window)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar.config(command=text_widget.yview)
+        text_widget.config(yscrollcommand=scrollbar.set)
 
 
 root = tk.Tk()
@@ -156,14 +174,7 @@ entry.pack()
 retrieve_info_button = tk.Button(root, text="Retrieve Book Info", command=retrieve_book_info)
 retrieve_info_button.pack(pady=10)
 
-show_accounts_button = tk.Button(root, text="Show All User Accounts",
-                                 command=lambda: show_all_accounts(password_entry.get()))
+show_accounts_button = tk.Button(root, text="Show All User Accounts", command=show_all_accounts)
 show_accounts_button.pack(pady=5)
-
-password_label = tk.Label(root, text="Enter password:")
-password_label.pack()
-
-password_entry = tk.Entry(root, show="*")
-password_entry.pack()
 
 root.mainloop()
